@@ -50,7 +50,7 @@ function popup.create(what, vim_options)
     bufnr = vim.api.nvim_create_buf(false, true)
     assert(bufnr, "Failed to create buffer")
 
-    vim.api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = bufnr })
 
     -- TODO: Handle list of lines
     if type(what) == "string" then
@@ -248,11 +248,11 @@ function popup.create(what, vim_options)
 
   -- Buffer Options
   if vim_options.cursorline then
-    vim.api.nvim_win_set_option(win_id, 'cursorline', true)
+    vim.api.nvim_set_option_value("cursorline", true, { win = win_id })
   end
 
   if vim_options.wrap ~= nil then
-    vim.api.nvim_win_set_option(win_id, 'wrap', vim_options.wrap)
+    vim.api.nvim_set_option_value("wrap", vim_options.wrap, { win = win_id })
   end
 
   -- ===== Not Implemented Options =====
@@ -353,11 +353,15 @@ function popup.create(what, vim_options)
   end
 
   if vim_options.highlight then
-    vim.api.nvim_win_set_option(win_id, 'winhl', string.format('Normal:%s', vim_options.highlight))
+    vim.api.nvim_set_option_value("winhl", string.format("Normal:%s", vim_options.highlight), { win = win_id })
   end
 
   if vim_options.borderhighlight then
-    vim.api.nvim_win_set_option(border.win_id, 'winhl', string.format('Normal:%s', vim_options.borderhighlight))
+    vim.api.nvim_set_option_value(
+      "winhl",
+      string.format("Normal:%s", vim_options.borderhighlight),
+      { win = border.win_id }
+    )
   end
 
   -- enter
