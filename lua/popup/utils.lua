@@ -21,7 +21,7 @@ utils.apply_defaults = function(original, defaults)
 
   original = vim.deepcopy(original)
 
-  for k, v in pairs(defaults) do
+  for k, v in next, defaults do
     if original[k] == nil then
       original[k] = v
     end

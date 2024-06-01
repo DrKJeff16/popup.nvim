@@ -174,7 +174,7 @@ function popup.create(what, vim_options)
   if type(what) == "number" then
     height = vim.api.nvim_buf_line_count(what)
   else
-    for _, v in ipairs(what) do
+    for _, v in next, what do
       width = math.max(width, #v)
     end
     height = #what
