@@ -7,34 +7,44 @@ local Border = require("plenary.window.border")
 local Window = require("plenary.window")
 local utils = require("popup.utils")
 
+---@class popup.PositionMap
+---@field topleft "NW"
+---@field topright "NE"
+---@field botleft "SW"
+---@field botright "SE"
+
+---@param options table<string, any>
+---@param key string
+---@param default table<string, any>
+---@return any
+local function dict_default(options, key, default)
+  return options[key] ~= nil and options[key] or default[key]
+end
+
 local popup = {}
 
+---@type popup.PositionMap
 popup._pos_map = {
-  topleft="NW",
-  topright="NE",
-  botleft="SW",
-  botright="SE",
+  topleft = "NW",
+  topright = "NE",
+  botleft = "SW",
+  botright = "SE",
 }
 
-
--- Keep track of hidden popups, so we can load them with popup.show()
+--- Keep track of hidden popups, so we can load them with popup.show()
+---@type table
 popup._hidden = {}
-
-
-local function dict_default(options, key, default)
-  if options[key] == nil then
-    return default[key]
-  else
-    return options[key]
-  end
-end
 
 -- Callbacks to be called later by popup.execute_callback
 popup._callbacks = {}
 
+---@param what integer|string|table
+---@param vim_options table
+---@return integer, table
 function popup.create(what, vim_options)
   local bufnr
-  if type(what) == 'number' then
+
+  if type(what) == "number" then
     bufnr = what
   else
     bufnr = vim.api.nvim_create_buf(false, true)
@@ -43,10 +53,10 @@ function popup.create(what, vim_options)
     vim.api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
 
     -- TODO: Handle list of lines
-    if type(what) == 'string' then
-      what = {what}
+    if type(what) == "string" then
+      what = { what }
     else
-      assert(type(what) == 'table', '"what" must be a table')
+      assert(type(what) == "table", '"what" must be a table')
     end
 
     -- padding    List with numbers, defining the padding
@@ -72,18 +82,18 @@ function popup.create(what, vim_options)
         pad_left = padding[4] or 0
       end
 
-      local left_padding = string.rep(' ', pad_left)
-      local right_padding = string.rep(' ', pad_right)
+      local left_padding = string.rep(" ", pad_left)
+      local right_padding = string.rep(" ", pad_right)
       for index = 1, #what do
-        what[index] = string.format('%s%s%s', left_padding, what[index], right_padding)
+        what[index] = string.format("%s%s%s", left_padding, what[index], right_padding)
       end
 
       for _ = 1, pad_top do
-        table.insert(what, 1, '')
+        table.insert(what, 1, "")
       end
 
       for _ = 1, pad_below do
-        table.insert(what, '')
+        table.insert(what, "")
       end
     end
 
@@ -91,26 +101,27 @@ function popup.create(what, vim_options)
   end
 
   local option_defaults = {
-    posinvert = true
+    posinvert = true,
   }
 
   local win_opts = {}
   win_opts.relative = "editor"
 
+  ---@type fun(pos_str: string, dim: string): integer
   local cursor_relative_pos = function(pos_str, dim)
-    assert(string.find(pos_str,'^cursor'), "Invalid value for " .. dim)
-    win_opts.relative = 'cursor'
+    assert(string.find(pos_str, "^cursor"), "Invalid value for " .. dim)
+    win_opts.relative = "cursor"
     local line = 0
-    if (pos_str):match "cursor%+(%d+)" then
-      line = line + tonumber((pos_str):match "cursor%+(%d+)")
-    elseif (pos_str):match "cursor%-(%d+)" then
-      line = line - tonumber((pos_str):match "cursor%-(%d+)")
+    if (pos_str):match("cursor%+(%d+)") then
+      line = line + tonumber((pos_str):match("cursor%+(%d+)"))
+    elseif (pos_str):match("cursor%-(%d+)") then
+      line = line - tonumber((pos_str):match("cursor%-(%d+)"))
     end
     return line
   end
 
   if vim_options.line then
-    if type(vim_options.line) == 'string' then
+    if type(vim_options.line) == "string" then
       win_opts.row = cursor_relative_pos(vim_options.line, "row")
     else
       win_opts.row = vim_options.line
@@ -122,7 +133,7 @@ function popup.create(what, vim_options)
   end
 
   if vim_options.col then
-    if type(vim_options.col) == 'string' then
+    if type(vim_options.col) == "string" then
       win_opts.col = cursor_relative_pos(vim_options.col, "col")
     else
       win_opts.col = vim_options.col
@@ -133,7 +144,7 @@ function popup.create(what, vim_options)
   end
 
   if vim_options.pos then
-    if vim_options.pos == 'center' then
+    if vim_options.pos == "center" then
       -- TODO: Do centering..
     else
       win_opts.anchor = popup._pos_map[vim_options.pos]
@@ -150,7 +161,7 @@ function popup.create(what, vim_options)
   -- ,     the popup is moved to the left so as to fit the
   -- ,     contents on the screen.  Set to TRUE to disable this.
 
-  win_opts.style = 'minimal'
+  win_opts.style = "minimal"
 
   -- Feels like maxheight, minheight, maxwidth, minwidth will all be related
   --
@@ -160,7 +171,7 @@ function popup.create(what, vim_options)
   -- minwidth  Minimum width of the contents, excluding border, padding and scrollbar.
   local width = vim_options.width or 1
   local height
-  if type(what) == 'number' then
+  if type(what) == "number" then
     height = vim.api.nvim_buf_line_count(what)
   else
     for _, v in ipairs(what) do
@@ -176,7 +187,7 @@ function popup.create(what, vim_options)
   -- ,   vertically and there is more space on the other side
   -- ,   then the popup is placed on the other side of the
   -- ,   position indicated by "line".
-  if dict_default(vim_options, 'posinvert', option_defaults) then
+  if dict_default(vim_options, "posinvert", option_defaults) then
     if win_opts.anchor == "NW" or win_opts.anchor == "NE" then
       if win_opts.row + win_opts.height > vim.o.lines and win_opts.row * 2 > vim.o.lines then
         -- Don't know why, but this is how vim adjusts it
@@ -205,12 +216,11 @@ function popup.create(what, vim_options)
     win_id = vim.api.nvim_open_win(bufnr, false, win_opts)
   end
 
-
   -- Moved, handled after since we need the window ID
   if vim_options.moved then
-    if vim_options.moved == 'any' then
-      vim.lsp.util.close_preview_autocmd({'CursorMoved', 'CursorMovedI'}, win_id)
-    elseif vim_options.moved == 'word' then
+    if vim_options.moved == "any" then
+      vim.lsp.util.close_preview_autocmd({ "CursorMoved", "CursorMovedI" }, win_id)
+    elseif vim_options.moved == "word" then
       -- TODO: Handle word, WORD, expr, and the range functions... which seem hard?
     end
   else
@@ -218,7 +228,7 @@ function popup.create(what, vim_options)
     vim.cmd(
       string.format(
         "autocmd BufDelete %s <buffer=%s> ++once ++nested :lua require('plenary.window').try_close(%s, true)",
-        (silent and "<silent>") or '',
+        (silent and "<silent>") or "",
         bufnr,
         win_id
       )
@@ -227,9 +237,13 @@ function popup.create(what, vim_options)
 
   if vim_options.time then
     local timer = vim.loop.new_timer()
-    timer:start(vim_options.time, 0, vim.schedule_wrap(function()
-      Window.try_close(win_id, false)
-    end))
+    timer:start(
+      vim_options.time,
+      0,
+      vim.schedule_wrap(function()
+        Window.try_close(win_id, false)
+      end)
+    )
   end
 
   -- Buffer Options
@@ -267,7 +281,7 @@ function popup.create(what, vim_options)
   if vim_options.border then
     should_show_border = true
 
-    if type(vim_options.border) == 'boolean' or vim.tbl_isempty(vim_options.border) then
+    if type(vim_options.border) == "boolean" or vim.tbl_isempty(vim_options.border) then
       border_options.border_thickness = Border._default_thickness
     elseif #vim_options.border == 4 then
       border_options.border_thickness = {
@@ -277,10 +291,7 @@ function popup.create(what, vim_options)
         left = utils.bounded(vim_options.border[4], 0, 1),
       }
     else
-      error(string.format(
-        "Invalid configuration for border: %s",
-        vim.inspect(vim_options.border)
-      ))
+      error(string.format("Invalid configuration for border: %s", vim.inspect(vim_options.border)))
     end
   elseif vim_options.border == false then
     should_show_border = false
@@ -303,19 +314,19 @@ function popup.create(what, vim_options)
 
     local b_top, b_right, b_bot, b_left, b_topleft, b_topright, b_botright, b_botleft
     if vim_options.borderchars == nil then
-      b_top , b_right , b_bot , b_left , b_topleft , b_topright , b_botright , b_botleft =
-        "═" , "║"     , "═"   , "║"    , "╔"       , "╗"        , "╝"        , "╚"
+      b_top, b_right, b_bot, b_left, b_topleft, b_topright, b_botright, b_botleft =
+        "═", "║", "═", "║", "╔", "╗", "╝", "╚"
     elseif #vim_options.borderchars == 1 then
       local b_char = vim_options.borderchars[1]
-      b_top    , b_right , b_bot  , b_left , b_topleft , b_topright , b_botright , b_botleft =
-        b_char , b_char  , b_char , b_char , b_char    , b_char     , b_char     , b_char
+      b_top, b_right, b_bot, b_left, b_topleft, b_topright, b_botright, b_botleft =
+        b_char, b_char, b_char, b_char, b_char, b_char, b_char, b_char
     elseif #vim_options.borderchars == 2 then
       local b_char = vim_options.borderchars[1]
       local c_char = vim_options.borderchars[2]
-      b_top    , b_right , b_bot  , b_left , b_topleft , b_topright , b_botright , b_botleft =
-        b_char , b_char  , b_char , b_char , c_char    , c_char     , c_char     , c_char
+      b_top, b_right, b_bot, b_left, b_topleft, b_topright, b_botright, b_botleft =
+        b_char, b_char, b_char, b_char, c_char, c_char, c_char, c_char
     elseif #vim_options.borderchars == 8 then
-      b_top , b_right , b_bot , b_left , b_topleft , b_topright , b_botright , b_botleft = unpack(vim_options.borderchars)
+      b_top, b_right, b_bot, b_left, b_topleft, b_topright, b_botright, b_botleft = unpack(vim_options.borderchars)
     else
       error(string.format('Not enough arguments for "borderchars"'))
     end
@@ -370,7 +381,13 @@ function popup.create(what, vim_options)
       vim_options.callback(win_id, what[row])
       vim.api.nvim_win_close(win_id, true)
     end
-    vim.api.nvim_buf_set_keymap(bufnr, 'n', '<CR>', '<cmd>lua require"popup".execute_callback(' .. bufnr .. ')<CR>', {noremap = true})
+    vim.api.nvim_buf_set_keymap(
+      bufnr,
+      "n",
+      "<CR>",
+      '<cmd>lua require"popup".execute_callback(' .. bufnr .. ")<CR>",
+      { noremap = true }
+    )
   end
 
   -- TODO: Perhaps there's a way to return an object that looks like a window id,
@@ -382,6 +399,7 @@ function popup.create(what, vim_options)
   }
 end
 
+---@param bufnr integer
 function popup.execute_callback(bufnr)
   if popup._callbacks[bufnr] then
     local wrapper = popup._callbacks[bufnr]
@@ -391,3 +409,5 @@ function popup.execute_callback(bufnr)
 end
 
 return popup
+
+--- vim:ts=2:sts=2:sw=2:et:
