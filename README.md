@@ -5,6 +5,9 @@ when complete
 
 ## Installation
 
+<ul>
+<li><u>Using <a href="https://github.com/junegunn/vim-plug">vim-plug</a></u>
+
 ```vim
 " This is a requirement, which implements some useful window management
 "   items for neovim
@@ -12,6 +15,19 @@ Plug 'nvim-lua/plenary.nvim'
 
 Plug 'nvim-lua/popup.nvim'
 ```
+
+</li>
+
+<li><u>Using <a href="https://github.com/folke/lazy.nvim">lazy.nvim</a></u>
+
+```lua
+{
+    'nvim-lua/popup.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+}
+```
+</li>
+</ul>
 
 ## Goals
 
